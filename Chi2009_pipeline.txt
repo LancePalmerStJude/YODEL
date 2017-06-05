@@ -1,0 +1,74 @@
+
+band=130_50
+QCutoff=10
+
+for i in "A" "B" "C" "D" "E"
+do
+python filterSolexa.py Brain${i}_${band}_fastq.txt  Q10/Brain${i}_${band}.Q${QCutoff}.fasta 
+done
+
+
+for i in  "A" "B" "C" "D" "E"
+do
+
+fastx_collapser -i Brain${i}_${band}.Q${QCutoff}.fasta -o Brain${i}_${band}.collapsed.Q${QCutoff}.fasta
+done
+
+cat *collapsed.Q${QCutoff}* > Brain_All_${band}.final.fasta
+~/programs/STAR/STAR-STAR_2.4.0k/bin/Linux_x86_64_static/STAR --genomeDir /nfs_exports/genomes/1/Mus_musculus/Mm9/STAR_small --genomeLoad NoSharedMemory  --readFilesIn  Brain_All_${band}.final.fasta  --outFileNamePrefix STAR/Brain_All_${band}.star --outSAMunmapped Within --outSAMtype BAM SortedByCoordinate  --quantMode TranscriptomeSAM  --chimSegmentMin 10 --chimJunctionOverhangMin 10 
+
+mkdir COVERAGE
+mkdir BED
+mkdir CLUSTERS
+
+
+MM9SIZES=/home/lpalmer1/data/sizes/mm9.sizes
+
+samtools view -u  STAR/Brain_All_$band.starAligned.sortedByCoord.out.bam | bamToBed -split -i stdin  > BED/Brain_All_${band}.bed
+
+gawk 'BEGIN{FS="\t";OFS="\t";}{if ($1 ~ /^([0-9]+|Y|X$)/) $1="chr" $1; if ($1 ~ /MT/) $1="chrM"; if ($1 !~ /^NT_/) print $0 }' BED/Brain_All_${band}.bed> BED/Brain_All_${band}.fixed.bed
+
+LC_COLLATE=C sort  -k1,1 -k2,2n BED/Brain_All_${band}.fixed.bed > BED/Brain_All_${band}.sorted.bed
+bedtools cluster -i BED/Brain_All_${band}.sorted.bed -s  > CLUSTERS/Brain_All_${band}.clusters.bed
+bedtools genomecov -split -bg  -i BED/Brain_All_${band}.sorted.bed -g $MM9SIZES > COVERAGE/Brain_All_${band}.sorted.cov
+bedGraphToBigWig   COVERAGE/Brain_All_${band}.sorted.cov  $MM9SIZES   COVERAGE/Brain_All_${band}.sorted.bw 
+
+python yodel.py --mph=5 --inFile=CLUSTERS/Brain_All_${band}.clusters.bed --outDir=PEAKS/Brain_${i} --dt=1.5 --pdb=1 --prefix=Brain_${band}_sens
+
+
+
+mkdir PIRANHA
+
+for aVal in "0.90"  "0.92" "0.94" "0.96" "0.98" "0.99"
+do
+for bVal in "16"  "32"
+do
+
+Piranha -a $aVal -b $bVal -s BED/Brain_All_130_50.sorted.bed > PIRANHA/Brain_All_130_50.piranha.a${aVal}.b$bVal.bed
+LC_COLLATE=C sort  -k1,1 -k2,2n -k3,3n -k4,4 PIRANHA/Brain_All_130_50.piranha.a${aVal}.b$bVal.bed > PIRANHA/Brain_All_130_50.piranha.a${aVal}.b$bVal.sorted.bed
+done
+done
+
+
+LC_COLLATE=C sort  -k1,1 -k2,2n CLUSTERS/Brain_All_${band}.clusters.bed >CLUSTERS/Brain_All_${band}.clusters.sorted.bed
+
+gawk 'BEGIN{FS="\t";OFS="\t";}{if ($6=="+"){print $0}}'  CLUSTERS/Brain_All_${band}.clusters.sorted.bed >  CLUSTERS/Brain_All_${band}.clusters.sorted.pos.bed
+gawk 'BEGIN{FS="\t";OFS="\t";}{if ($6=="-"){print $0}}'   CLUSTERS/Brain_All_${band}.clusters.sorted.bed > CLUSTERS/Brain_All_${band}.clusters.sorted.neg.bed
+
+slopBed -i CLUSTERS/Brain_All_${band}.clusters.sorted.pos.bed  -g $MM9SIZES -b 100 > CLUSTERS/Brain_All_${band}.clusters.extended.pos.bed
+slopBed -i CLUSTERS/Brain_All_${band}.clusters.sorted.neg.bed   -g $MM9SIZES -b 100 > CLUSTERS/Brain_All_${band}.clusters.extended.neg.bed
+
+
+mergeBed   -i CLUSTERS/Brain_All_${band}.clusters.extended.pos.bed>  CLUSTERS/Brain_All_${band}.clusters.merged.pos.bed
+mergeBed   -i CLUSTERS/Brain_All_${band}.clusters.extended.neg.bed >  CLUSTERS/Brain_All_${band}.clusters.merged.neg.bed
+
+
+gawk 'BEGIN{FS="\t";OFS="\t";}{$4=$1":"$2"-"$3":+"; $5="0" ;$6="+"; print $0 }' CLUSTERS/Brain_All_${band}.clusters.merged.pos.bed > CLUSTERS/Brain_All_${band}.clusters.mergedPlus.pos.bed
+gawk 'BEGIN{FS="\t";OFS="\t";}{$4=$1":"$2"-"$3":-"; $5="0" ;$6="-"; print $0 }' CLUSTERS/Brain_All_${band}.clusters.merged.neg.bed >CLUSTERS/Brain_All_${band}.clusters.mergedPlus.neg.bed
+
+twoBitToFa -noMask -bed=CLUSTERS/Brain_All_${band}.clusters.mergedPlus.pos.bed -bedPos /nfs_exports/genomes/1/Mus_musculus/mm9/2BIT/mm9.2bit CLUSTERS/Brain_All_${band}.clusters.pos.fa
+twoBitToFa -noMask -bed=CLUSTERS/Brain_All_${band}.clusters.mergedPlus.neg.bed -bedPos /nfs_exports/genomes/1/Mus_musculus/mm9/2BIT/mm9.2bit CLUSTERS/Brain_All_${band}.clusters.neg.fa
+
+
+mkdir SEEDS
+python findSeedSA.py seeds.txt CLUSTERS/Brain_All_${band}.clusters SEEDS Brain_All_${band}
