@@ -24,7 +24,11 @@ from decimal import Decimal
 
 
 '''
---mph=5 --inFile=C:\projects\hitsClip\PeakCaller\allSamples.fullCollapsed.clusters.bed --outDir=C:\projects\hitsClip\PeakCaller --dt=1.5 --pdb=1 --prefix=MoreSensTest  --sampleList=C:\projects\hitsClip\PeakCaller\sampleList.txt
+#more sensitive parameters
+--mph=5 --inFile=C:\projects\hitsClip\PeakCaller\GIT\YODEL\Cab39_Ywhaz.allSamples.fullCollapsed.clusters.bed --outDir=C:\projects\hitsClip\PeakCaller\GIT\YODEL\ --dt=1.5 --pdb=1 --prefix=MoreSensTest  --sampleList=C:\projects\hitsClip\PeakCaller\GIT\YODEL\sampleList.txt
+#less sensitive parameters
+--mph=5 --inFile=C:\projects\hitsClip\PeakCaller\GIT\YODEL\Cab39_Ywhaz.allSamples.fullCollapsed.clusters.bed --outDir=C:\projects\hitsClip\PeakCaller\GIT\YODEL\ --dt=2 --pdb=2 --prefix=LessSensTest  --sampleList=C:\projects\hitsClip\PeakCaller\GIT\YODEL\sampleList.txt
+
 '''
 
 ####Default values####
