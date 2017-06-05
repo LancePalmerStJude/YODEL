@@ -1,3 +1,5 @@
+#requires bedtools,samtools,fastx toolkit, STAR and Piranha  to be installed
+#This file is only an example of how data can be preprocessed before YODEL.  File links will need to be altered for running on your system.
 
 band=130_50
 QCutoff=10
